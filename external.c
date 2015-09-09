@@ -4,6 +4,8 @@
  * Michael Vescovo s3459317
  */
 
+#define _GNU_SOURCE
+
 #include <sys/ipc.h>
 #include <sys/types.h>
 #include <sys/msg.h>
@@ -13,7 +15,7 @@
 
 #define CENTRAL_MAILBOX 1200
 
-//Central Mailbox number
+/* Central Mailbox number */
 struct {
     long priority;
     int temp;
@@ -21,13 +23,24 @@ struct {
     int stable;
 } msgp, cmbox;
 
-//message priority
-//temperature
-//process id
-//boolean for temperature stability
+/* message priority */
+/* temperature */
+/* process id */
+/* boolean for temperature stability */
 
-//MAIN function
+/* MAIN function */
 int main(int argc, char *argv[]) {
+    /* Setup local variables */
+    int unstable = 1;
+    int result, length, status;
+    int initTemp = atoi(argv[1]);
+    int uid = atoi(argv[2]);
+
+    /* Create the Central Servers Mailbox */
+    int msqidC = msgget(CENTRAL_MAILBOX, 0600 | IPC_CREAT);
+    /* Create the mailbox for this process and store it's IDs */
+    int msqid = msgget((CENTRAL_MAILBOX + uid), 0600 | IPC_CREAT);
+    
     /* Validate that a temperature and a Unique process ID was given via the
      * command */
     if(argc != 3) {
@@ -35,18 +48,7 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    //Setup local variables
-    int unstable = 1;
-    int result, length, status;
-    int initTemp = atoi(argv[1]);
-    int uid = atoi(argv[2]);
-
-    //Create the Central Servers Mailbox
-    int msqidC = msgget(CENTRAL_MAILBOX, 0600 | IPC_CREAT);
-    //Create the mailbox for this process and store it's IDs
-    int msqid = msgget((CENTRAL_MAILBOX + uid), 0600 | IPC_CREAT);
-    
-    //Initialize the message to be sent
+    /* Initialize the message to be sent */
     cmbox.priority = 1;
     cmbox.pid = uid;
     cmbox.temp = initTemp;
@@ -56,29 +58,32 @@ int main(int argc, char *argv[]) {
      * sizeof(mtype) */
     length = sizeof(msgp) - sizeof(long);
 
-    //While all the processes have different temps
+    /* While all the processes have different temps */
     while(unstable == 1){
-        //Send the current temp to the central server
+        /* Send the current temp to the central server */
         result = msgsnd( msqidC, &cmbox, length, 0);
         
-        //Wait for a new message from the central server
+        /* Wait for a new message from the central server */
         result = msgrcv( msqid, &msgp, length, 1, 0);
 
-        //If the new message indicates all the processes have the same temp
-        //break the loop and print out the final temperature
+        /* If the new message indicates all the processes have the same temp */
+        /* break the loop and print out the final temperature */
         if(msgp.stable == 0) {
             unstable = 0;
             printf("\nProcess %d Temp: %d\n", cmbox.pid, cmbox.temp);
-        } else { //otherwise calculate the new temp and store it
+        } else { /* otherwise calculate the new temp and store it */
             int newTemp = (10*cmbox.temp + msgp.temp) / 11;
             cmbox.temp = newTemp;
         }
     }
 
-    //Remove the mailbox
+    /* Remove the mailbox */
     status = msgctl(msqid, IPC_RMID, 0);
 
-    //Validate nothing when wrong when trying to remove mailbox
+    /* Validate nothing when wrong when trying to remove mailbox */
     if(status != 0)
         printf("\nERROR closing mailbox\n");
+
+    printf("result: %d", result); /* temp to remove unused variable error */
+    return 0;
 }
