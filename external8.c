@@ -1,7 +1,7 @@
 /*
- * external.c
+ * external8.c
  *
- * 
+ * Michael Vescovo s3459317
  */
 
 #define _GNU_SOURCE

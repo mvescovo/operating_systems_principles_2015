@@ -1,7 +1,7 @@
 /*
- * external.c
+ * external8.c
  *
- * 
+ * Michael Vescovo s3459317
  */
 
 #define _GNU_SOURCE
@@ -13,8 +13,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define CENTRAL_MAILBOX 3459317 /* Central Mailbox number */
-
 struct {
     long priority; /* message priority */
     int temp; /* temperature */
@@ -23,27 +21,33 @@ struct {
 } msgp, cmbox;
 
 /* MAIN function */
-int main(int argc, char *argv[]) {
-    /* Setup local variables */
+int main(int argc, char *argv[])
+{
     int unstable = 1;
+    int mailbox;
     int result, length, status;
-    int initTemp = atoi(argv[1]);
-    int uid = atoi(argv[2]);
+    int initTemp;
+    int uid;
+    int msqidC, msqid;
 
-    /* Create the Central Servers Mailbox */
-    int msqidC = msgget(CENTRAL_MAILBOX, 0600 | IPC_CREAT);
-    /* Create the mailbox for this process and store it's IDs */
-    int msqid = msgget((CENTRAL_MAILBOX + uid), 0600 | IPC_CREAT);
-    
     /* Validate that a temperature and a Unique process ID was given via
        the command */
-    if(argc != 3) {
+    if(argc != 4) {
         printf("USAGE: Too few arguments --./central.out Temp UID");
         exit(0);
     }
 
+    initTemp = atoi(argv[1]);
+    uid = atoi(argv[2]);
+    mailbox = atoi(argv[3]);
+
+    /* Create the Central Servers Mailbox */
+    msqidC = msgget(mailbox, 0600 | IPC_CREAT);
+    /* Create the mailbox for this process and store it's IDs */
+    msqid = msgget((mailbox + uid), 0600 | IPC_CREAT);
+    
     /* Initialize the message to be sent */
-    cmbox.priority = 1;
+    cmbox.priority = 2;
     cmbox.pid = uid;
     cmbox.temp = initTemp;
     cmbox.stable = 1;
@@ -60,13 +64,16 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Failed to send messsage. External.c");
         
         /* Wait for a new message from the central server */
-        result = msgrcv( msqid, &msgp, length, 1, 0);
+#if 0
+        printf("uid: %d waiting on msqid: %d\n", uid, msqid);
+#endif
+        result = msgrcv( msqid, &msgp, length, 2, 0);
         if (result == -1)
             fprintf(stderr, "Failed to receive messsage. External.c");
 
         /* If the new message indicates all the processes have the same
          * temp break the loop and print out the final temperature */
-        if(msgp.stable == 0) {
+        if(msgp.stable == 1) {
             unstable = 0;
             printf("Process %d Temp: %d\n", cmbox.pid, cmbox.temp);
         } else { /* otherwise calculate the new temp and store it */

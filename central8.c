@@ -1,7 +1,7 @@
 /*
- * central.c
+ * central8.c
  *
- *
+ * Michael Vescovo s3459317
  */
 
 #define _GNU_SOURCE
@@ -15,7 +15,7 @@
 #include <sys/time.h>
 
 #define CENTRAL_MAILBOX 3459317 /* Central Mailbox number */
-#define NUM_PROCESSES 4 /* Total number of external processes */
+#define NUM_PROCESSES 8 /* Total number of external processes */
 
 struct {
     long priority; /* message priority */
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     while(unstable == 1){
         int sumTemp = 0; /* sum up the temps as we loop */
         int stable = 1; /* stability trap */
-
+        
         /* Get new messages from the processes */
         for(i = 0; i < NUM_PROCESSES; i++){
             result = msgrcv( msqidC, &cmbox, length, 1, 0);
@@ -113,6 +113,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Failed to send messsage. External.c");
     }
 
+    usleep(100000);
     printf("\nShutting down Server...\n");
 
     /* Remove the mailbox */
@@ -131,6 +132,7 @@ int main(int argc, char *argv[]) {
 
     /* sec to ms */
     elapsedTime += (t2.tv_usec - t1.tv_usec) / 1000.0; /* us to ms */
+    usleep(100000);
     printf("The elapsed time is %fms\n", elapsedTime);
     return 0;
 }

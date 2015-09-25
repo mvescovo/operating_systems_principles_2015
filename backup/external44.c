@@ -1,7 +1,7 @@
 /*
- * external.c
+ * external44.c
  *
- * 
+ * Michael Vescovo s3459317
  */
 
 #define _GNU_SOURCE
@@ -12,14 +12,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#define CENTRAL_MAILBOX 3459317 /* Central Mailbox number */
+#include <errno.h>
 
 struct {
     long priority; /* message priority */
     int temp; /* temperature */
     int pid; /* process id */
     int stable; /* boolean for temperature stability */
+    int group; /* process group */
 } msgp, cmbox;
 
 /* MAIN function */
@@ -29,17 +29,47 @@ int main(int argc, char *argv[]) {
     int result, length, status;
     int initTemp = atoi(argv[1]);
     int uid = atoi(argv[2]);
-
-    /* Create the Central Servers Mailbox */
-    int msqidC = msgget(CENTRAL_MAILBOX, 0600 | IPC_CREAT);
-    /* Create the mailbox for this process and store it's IDs */
-    int msqid = msgget((CENTRAL_MAILBOX + uid), 0600 | IPC_CREAT);
+    int msqidC;
+    int msqid;;
     
     /* Validate that a temperature and a Unique process ID was given via
        the command */
-    if(argc != 3) {
+    if(argc != 4) {
         printf("USAGE: Too few arguments --./central.out Temp UID");
         exit(0);
+    }
+
+    /* Create the mailbox for this process and store it's IDs */
+    switch(uid) {
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+            msqid = msgget((CENTRAL_MAILBOX1 + uid), 0600 | IPC_CREAT);
+            printf("\nmsqid from external: %d", msqid);
+            break;
+        case 5:
+        case 6:
+        case 7:
+        case 8:
+            msqid = msgget((CENTRAL_MAILBOX2 + uid), 0600 | IPC_CREAT);
+            printf("\nmsqid from external: %d", msqid);
+            break;
+    }
+
+    /* Find out what group the process is in */
+    result = msgrcv( msqid, &group, sizeof(int), 1, 0);
+    if (result == -1) {
+        int errsv = errno;
+        fprintf(stderr, "\nFailed to receive messsage. external.c errno: "
+                " %d", errsv);
+    }
+    if (group.group[0] == '1') {
+        /* Create the Central Servers Mailbox */
+        msqidC = msgget(CENTRAL_MAILBOX1, 0600 | IPC_CREAT);
+    } else {
+        /* Create the Central Servers Mailbox */
+        msqidC = msgget(CENTRAL_MAILBOX2, 0600 | IPC_CREAT);
     }
 
     /* Initialize the message to be sent */
@@ -57,18 +87,18 @@ int main(int argc, char *argv[]) {
         /* Send the current temp to the central server */
         result = msgsnd( msqidC, &cmbox, length, 0);
         if (result == -1)
-            fprintf(stderr, "Failed to send messsage. External.c");
+            fprintf(stderr, "\nFailed to send messsage. external.c");
         
         /* Wait for a new message from the central server */
         result = msgrcv( msqid, &msgp, length, 1, 0);
         if (result == -1)
-            fprintf(stderr, "Failed to receive messsage. External.c");
+            fprintf(stderr, "\nFailed to receive messsage. external.c");
 
         /* If the new message indicates all the processes have the same
          * temp break the loop and print out the final temperature */
         if(msgp.stable == 0) {
             unstable = 0;
-            printf("Process %d Temp: %d\n", cmbox.pid, cmbox.temp);
+            printf("\nProcess %d Temp: %d\n", cmbox.pid, cmbox.temp);
         } else { /* otherwise calculate the new temp and store it */
             int newTemp = (10*cmbox.temp + msgp.temp) / 11;
             cmbox.temp = newTemp;
