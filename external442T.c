@@ -1,5 +1,5 @@
 /*
- * external44.c
+ * external442T.c
  *
  * Michael Vescovo s3459317
  */
@@ -23,7 +23,7 @@ struct {
 /* MAIN function */
 int main(int argc, char *argv[])
 {
-    int unstable = 1;
+    int unstable = 1; /* TODO change back to 1 */
     int mailbox;
     int result, length, status;
     int initTemp;
@@ -59,6 +59,9 @@ int main(int argc, char *argv[])
     /* While all the processes have different temps */
     while(unstable == 1){
         /* Send the current temp to the central server */
+#if 0
+        printf("uid: %d going to send msg\n", uid); 
+#endif
         result = msgsnd( msqidC, &cmbox, length, 0);
         if (result == -1)
             fprintf(stderr, "Failed to send messsage. External.c");

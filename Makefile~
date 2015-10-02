@@ -6,7 +6,7 @@ all:
 	gcc -ansi -pedantic -Wall external44.c -o external44
 	gcc -ansi -pedantic -Wall central44.c -o central44
 	gcc -ansi -pedantic -Wall external442T.c -o external442T
-	gcc -ansi -pedantic -Wall -pthread central442T.c -o central442T
+	gcc -ansi -pedantic -Wall central442T.c -o central442T
 	gcc -ansi -pedantic -Wall test1.c -o test1
 	gcc -ansi -pedantic -Wall test2.c -o test2
 clean:
