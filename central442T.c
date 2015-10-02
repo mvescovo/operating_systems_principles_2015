@@ -27,11 +27,12 @@ struct msg {
 } msgp1, msgp2, cmbox1, cmbox2;
 
 struct buff {
-    int group;
+    int group; /* group number */
+    int group_size;
     struct msg *msgp;
     struct msg *cmbox;
-    int i;
-    int max;
+    int i; /* start counter for iterating processes in this group */
+    int max; /* max process id for iterating in this group */
     int result;
     int status;
     int unstable;
@@ -42,7 +43,7 @@ struct buff {
     int length;
 } group1, group2;
 
-static void* threadfunc(void *arg);
+static void* stabilise(void *arg);
 
 /* MAIN function */
 int main(int argc, char *argv[])
@@ -50,10 +51,9 @@ int main(int argc, char *argv[])
     struct timeval t1, t2;
     double elapsedTime;
     int initTemp1, initTemp2; /* starting temperatures */
-    int mailbox1, mailbox2;
+    int mailbox1, mailbox2; /* central mailbox for each group */
     int msqid[NUM_PROCESSES]; /* mailbox IDs for all processes */
     int i, presult, length, status; /* counter for loops */
-
     int uid = 0; /* central process ID */
     int tempAry[NUM_PROCESSES]; /* array of process temperatures */
     pthread_t thread1; /* group 1 thread */
@@ -87,7 +87,9 @@ int main(int argc, char *argv[])
      * sizeof(mtype) */
     length = sizeof(struct msg) - sizeof(long);
 
+    /* initialise the rest of the group variables */
     group1.group = 1;
+    group1.group_size = GROUP1_SIZE;
     group1.msgp = &msgp1;
     group1.cmbox = &cmbox1;
     group1.i = 0;
@@ -102,6 +104,7 @@ int main(int argc, char *argv[])
     group1.length = length;
 
     group2.group = 2;
+    group2.group_size = GROUP2_SIZE;
     group2.msgp = &msgp2;
     group2.cmbox = &cmbox2;
     group2.i = GROUP1_SIZE;
@@ -121,21 +124,20 @@ int main(int argc, char *argv[])
     gettimeofday(&t1, NULL);
 
     /* create new thread for group 1 */
-    if (pthread_create(&thread1, NULL, threadfunc, &group1) != 0)
+    if (pthread_create(&thread1, NULL, stabilise, &group1) != 0)
         fprintf(stderr, "Failed to create thread1.\n");
     /* create new thread for group 2 */
-    if (pthread_create(&thread2, NULL, threadfunc, &group2) != 0)
+    if (pthread_create(&thread2, NULL, stabilise, &group2) != 0)
         fprintf(stderr, "Failed to create thread2.\n");
 
-    printf("Message from main\n");
+    /* wait for thread1 to complete */
     presult = pthread_join(thread1, NULL);
     if (presult != 0)
         fprintf(stderr, "Failed to join thread.\n");
-    printf("Thread1 returned.\n");
+    /* wait for thread2 to complete */
     presult = pthread_join(thread2, NULL);
     if (presult != 0)
         fprintf(stderr, "Failed to join thread.\n");
-    printf("Thread2 returned.\n");
 
     usleep(100000);
     printf("\nShutting down Server...\n");
@@ -167,11 +169,9 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void * threadfunc(void *arg)
+void * stabilise(void *arg)
 {
     struct buff *buff = (struct buff*) arg;
-
-    printf("thread %d started.\n", buff->group);
 
     /* While the processes have different temperatures */
     while(buff->unstable == 1){
@@ -179,13 +179,11 @@ void * threadfunc(void *arg)
         int stable = 1; /* stability trap */
         int i;
         
-#if 1
         /* Get new messages from the processes */
         for(i = buff->i; i < buff->max; i++) {
             if ((i < buff->max) && buff->unstable) {
                 buff->result = msgrcv( buff->msqidC, buff->cmbox,
-                                       buff->length,
-                                     2, 0);
+                                       buff->length, 2, 0);
                 if (buff->result == -1)
                     fprintf(stderr, "Failed to receive messsage. "
                             "External.c");
@@ -217,7 +215,7 @@ void * threadfunc(void *arg)
             } else { /* Calculate a new temp and set the temp field in the
                       * message */
                 int newTemp = (buff->cTemp + 1000*sumTemp) /
-                              (1000*GROUP1_SIZE + 1); /* TODO */
+                              (1000*buff->group_size + 1);
                 usleep(100000);
                 buff->cTemp = newTemp;
                 buff->msgp->temp = newTemp;
@@ -227,7 +225,7 @@ void * threadfunc(void *arg)
             }
             /* Send a new message to all processes to inform of new temp or
              * stability */
-            for(i = buff->i; i < buff->max; i++) { /* TODO */
+            for(i = buff->i; i < buff->max; i++) {
                 buff->result = msgsnd( (*(buff->msqid))[i], buff->msgp,
                                         buff->length, 0);
                 if (buff->result == -1)
@@ -238,7 +236,6 @@ void * threadfunc(void *arg)
 #endif
             }
         }
-#endif
     }
     return 0;
 }

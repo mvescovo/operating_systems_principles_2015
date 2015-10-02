@@ -23,7 +23,7 @@ struct {
 /* MAIN function */
 int main(int argc, char *argv[])
 {
-    int unstable = 1; /* TODO change back to 1 */
+    int unstable = 1;
     int mailbox;
     int result, length, status;
     int initTemp;
